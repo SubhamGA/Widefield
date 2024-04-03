@@ -1,0 +1,47 @@
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn import metrics
+import matplotlib.pyplot as plt
+import os
+
+# Load your mouse brain data from file
+folder_path = '/Users/subham/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/'
+# folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/'
+data = np.load(os.path.join(folder_path, 'Downsampled_Data.npy'))
+
+# Select a random subset of 1000 time points from the total 22382 time points
+random_indices = np.random.choice(data.shape[0], 1000, replace=False)
+subset_data = data[random_indices]
+
+# Print the random indices
+print("Randomly Selected Indices:")
+print(random_indices)
+
+# Print the first few rows of subset_data to see its content
+print("\nSubset Data Shape:", subset_data.shape)
+print("Subset Data Content (First 5 Rows):")
+print(subset_data[:5])
+
+# Lists to store silhouette scores and cluster numbers
+silhouette_scores = []
+cluster_numbers = []
+
+# Iterate over a range of cluster numbers (2 to 20)
+for n_clusters in range(2, 21):
+    kmeans_model = KMeans(n_clusters=n_clusters, n_init=10, random_state=1)
+    labels = kmeans_model.fit_predict(subset_data)
+
+    # Evaluate clustering performance using silhouette score
+    silhouette_score = metrics.silhouette_score(subset_data, labels, metric='euclidean')
+
+    # Append silhouette score and cluster number to lists
+    silhouette_scores.append(silhouette_score)
+    cluster_numbers.append(n_clusters)
+
+# Plot silhouette scores vs. number of clusters for the subset
+plt.plot(cluster_numbers, silhouette_scores, marker='o')
+plt.xlabel('Number of Clusters')
+plt.ylabel('Silhouette Score')
+plt.title('Silhouette Scores vs. Number of Clusters (Subset of 1000 Time Points)')
+plt.grid(True)
+plt.show()

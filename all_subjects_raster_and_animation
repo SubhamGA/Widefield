@@ -1,0 +1,73 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import animation
+import os
+
+def create_raster_plot(data, vmin, vmax, save_path):
+    """
+    Create and save a raster plot from the given data.
+    """
+    fig, ax = plt.subplots()
+    data = data.T  # Transpose the data to have time at x and pixel at y
+    im = ax.imshow(data, cmap='viridis', origin='lower', aspect='auto', vmin=vmin, vmax=vmax)
+    ax.set_title('Raster Plot of Brain Activity')
+    ax.set_xlabel('Time Rows')
+    ax.set_ylabel('Pixel Columns')
+    fig.colorbar(im, ax=ax)  # Add a colorbar to the plot
+    plt.savefig(save_path)
+    plt.close(fig)
+
+def animation_activity(data, indices, vmin, vmax, save_path):
+    """
+    Create and save an animation of the change of pixel intensity over time.
+    """
+    template = np.zeros((100, 100))  # Create an empty template matrix of size 100x100
+    fig, ax = plt.subplots()
+
+    def update(frame):
+        """
+        Update function for animation.
+        """
+        ax.clear()
+        intensities = data[frame]
+        for i, index in enumerate(indices):
+            row, col = divmod(index - 1, 100)  # Convert 1D index to 2D coordinates
+            template[row, col] = intensities[i]
+        im = ax.imshow(template, cmap='viridis', vmin=vmin, vmax=vmax)
+        ax.set_title(f'Frame {frame+1}')
+        return [im]
+
+    ani = animation.FuncAnimation(fig, update, frames=len(data), interval=10)
+    ani.save(save_path, writer='ffmpeg')  # Saving as a movie
+    plt.close(fig)
+
+# Define the main folder path
+main_folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/'
+# main_folder_path = '/Users/subham/Python/Downsampled_Data/'
+
+# Recursively search for data files in the main folder and its subfolders
+for root, dirs, files in os.walk(main_folder_path):
+    if 'Downsampled_Data.npy' in files and 'Pixel_Indicies.npy' in files:
+        data_path = os.path.join(root, 'Downsampled_Data.npy')
+        indices_path = os.path.join(root, 'Pixel_Indicies.npy')
+        data = np.load(data_path)
+        indices = np.load(indices_path)
+
+        save_folder_path = os.path.join(root, 'graphs/')
+        os.makedirs(save_folder_path, exist_ok=True)  # Create the folder if it does not exist
+
+        # Paths for saving the files
+        raster_plot_path = os.path.join(save_folder_path, 'raster_plot.png')
+        animation_path = os.path.join(save_folder_path, 'brain_activity_animation.mp4')
+
+        # Set the color scale range
+        vmin = -0.05
+        vmax = 0.05
+
+        # Create and save the raster plot
+        create_raster_plot(data, vmin, vmax, raster_plot_path)
+
+        # Create and save the animation
+        animation_activity(data, indices, vmin, vmax, animation_path)
+
+        print(f"Raster plot and animation saved in folder: {save_folder_path}")

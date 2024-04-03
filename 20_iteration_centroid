@@ -1,0 +1,66 @@
+import numpy as np
+import os
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+# Define the main folder path where your data files and subfolders are located
+# main_folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/'
+main_folder_path = '/Users/subham/Python/Downsampled_Data/'
+
+def centroid_calculator(all_centroids):
+    """
+    Perform K-means clustering on the provided centroids and return the new centroids.
+    """
+    n_clusters = 5
+    kmeans_model = KMeans(n_clusters=n_clusters, n_init=10, random_state=1)
+    labels = kmeans_model.fit_predict(all_centroids)
+    centroids = kmeans_model.cluster_centers_
+    return centroids
+
+# Recursively search for data files in the main folder and its subfolders
+for root, dirs, files in os.walk(main_folder_path):
+    if 'Downsampled_Data.npy' in files and 'Pixel_Indicies.npy' in files:
+        # Load the pixel indices
+        indices_path = os.path.join(root, 'Pixel_Indicies.npy')
+        indices = np.load(indices_path)
+
+        # Folder to load the centroid files
+        cluster_folder_path = os.path.join(root, '20_cluster_patterns/')
+        
+        # Initialize an empty list to store centroids
+        all_centroids = []
+
+        # Iterate 20 times to load the centroid files
+        for n in range(20):
+            centroid_file = os.path.join(cluster_folder_path, f'centroids_{n}.npy')
+            centroids = np.load(centroid_file)
+            all_centroids.append(centroids)
+
+        # Stack the list of centroids into a single 2D array
+        all_centroids = np.stack(all_centroids, axis=0)
+        all_centroids = all_centroids.reshape(-1, all_centroids.shape[-1])
+
+        # Calculate new centroids
+        final_centroids = centroid_calculator(all_centroids)
+
+        # Save final centroids as a file
+        np.save(os.path.join(cluster_folder_path, f'5finalcentroids.npy'), final_centroids)
+
+        # Create a figure with subplots for each cluster
+        fig, axs = plt.subplots(1, 5, figsize=(15, 3))
+
+        # Loop through each final centroid and create an image
+        for cluster_id, centroid in enumerate(final_centroids):
+            plt.sca(axs[cluster_id])
+            template = np.zeros((100, 100))
+            for i, index in enumerate(indices):
+                row, col = divmod(index - 1, 100)
+                template[row, col] = centroid[i]
+            plt.imshow(template, cmap='viridis', vmin=-0.05, vmax=0.05)
+            plt.title(f'Final Cluster {cluster_id + 1}')
+
+        # Save the figure as an image
+        canvas = FigureCanvas(fig)
+        canvas.print_figure(os.path.join(cluster_folder_path, f'final_clusters_combined.png'))
+        plt.close(fig)

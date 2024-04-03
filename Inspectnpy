@@ -1,0 +1,13 @@
+import numpy as np
+
+# Load the data from a .npy file
+file_path = '/Users/subham/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/Downsampled_Data.npy'  # Replace with the path to your .npy file
+# folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/'
+loaded_data = np.load(file_path)
+
+# Print or inspect the loaded data
+print(loaded_data)
+
+# You can also check the shape and data type of the loaded array
+print("Shape:", loaded_data.shape)
+print("Data Type:", loaded_data.dtype)

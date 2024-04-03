@@ -1,0 +1,62 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+
+# Define the main folder path where your data files and subfolders are located
+main_folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/'
+# main_folder_path = '/Users/subham/Python/Downsampled_Data/'
+
+# Function to calculate the correlation for each centroid row
+def calculate_correlation(data, centroids):
+    num_centroid_rows = centroids.shape[0]
+    num_time_points = data.shape[0]
+    correlation_values_list = []
+
+    for i in range(num_centroid_rows):
+        centroid_row = centroids[i, :]
+        correlation_values = [np.corrcoef(centroid_row, data[j, :])[0, 1] for j in range(num_time_points)]
+        correlation_values_list.append(correlation_values)
+
+    return correlation_values_list
+
+# Recursively search for data files in the main folder and its subfolders
+# Recursively search for data files in the main folder and its subfolders
+for root, dirs, files in os.walk(main_folder_path):
+    if 'Downsampled_Data.npy' in files:
+        # Load the data from the current file paths
+        data_path = os.path.join(root, 'Downsampled_Data.npy')
+        data = np.load(data_path)
+
+        # Path for centroids in the subfolder '20_cluster_patterns'
+        centroids_path = os.path.join(root, '20_cluster_patterns', '5finalcentroids.npy')
+        if os.path.exists(centroids_path):
+            centroids = np.load(centroids_path)
+        else:
+            print(f"Centroids file not found for: {root}")
+            continue  # Skip this folder if centroids file is not found
+
+        # Calculate the correlation values
+        correlation_values_list = calculate_correlation(data, centroids)
+
+        # Create a single plot with all centroid rows' correlations over time
+        plt.figure(figsize=(12, 6))
+        time_points = np.arange(data.shape[0])
+        for i, correlation_values in enumerate(correlation_values_list):
+            plt.plot(time_points, correlation_values, label=f'Centroid {i+1}')
+
+        plt.xlabel('Time')
+        plt.ylabel('Correlation Coefficient')
+        plt.title(f'Correlation Between Centroid Rows and Data Over Time ({root})')
+        plt.legend()
+        plt.grid(True)
+
+        # Save folder path for graphs
+        save_folder_path = os.path.join(root, 'graphs')
+        if not os.path.exists(save_folder_path):
+            os.makedirs(save_folder_path)  # Create the folder if it does not exist
+
+        # Save the figure
+        plt.savefig(os.path.join(save_folder_path, 'correlation_over_time.png'))
+        plt.close()
+
+        print(f"Correlation plot saved in folder: {save_folder_path}")

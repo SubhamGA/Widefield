@@ -1,0 +1,78 @@
+import numpy as np
+import os
+import matplotlib.pyplot as plt
+from scipy.cluster.hierarchy import ward, leaves_list
+from scipy.spatial.distance import pdist
+
+# Define the main folder path where your data files and subfolders are located
+main_folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/'
+# main_folder_path = '/Users/subham/Python/Downsampled_Data/'
+
+# Function to calculate the transition probability matrix
+def calculate_transition_probabilities(data, centroids):
+    num_centroid_rows = centroids.shape[0]
+    num_time_points = data.shape[0]
+    most_correlated_centroids = np.zeros(num_time_points, dtype=int)
+
+    for t in range(num_time_points):
+        correlations = [np.corrcoef(centroids[i, :], data[t, :])[0, 1] for i in range(num_centroid_rows)]
+        most_correlated_centroids[t] = np.argmax(correlations) + 1
+
+    transition_counts = np.zeros((num_centroid_rows, num_centroid_rows), dtype=int)
+
+    for t in range(1, num_time_points):
+        previous_centroid = most_correlated_centroids[t - 1] - 1
+        current_centroid = most_correlated_centroids[t] - 1
+        transition_counts[previous_centroid, current_centroid] += 1
+
+    np.fill_diagonal(transition_counts, 0)
+    transition_probabilities = (transition_counts / num_time_points) * 100
+    return transition_probabilities
+
+# Function to sort the matrix and labels
+def sort_matrix_and_labels(matrix):
+    Z = ward(pdist(matrix))
+    new_order = leaves_list(Z)
+    sorted_matrix = matrix[:, new_order][new_order]
+    sorted_labels = [str(i+1) for i in new_order]
+    return sorted_matrix, sorted_labels
+
+# Recursively search for data files in the main folder and its subfolders
+for root, dirs, files in os.walk(main_folder_path):
+    if 'Downsampled_Data.npy' in files:
+        data_path = os.path.join(root, 'Downsampled_Data.npy')
+        centroids_path = os.path.join(root, '20_cluster_patterns', '5finalcentroids.npy')
+        if os.path.exists(centroids_path):
+            data = np.load(data_path)
+            centroids = np.load(centroids_path)
+        else:
+            print(f"Centroids file not found for: {root}")
+            continue
+
+        transition_probabilities = calculate_transition_probabilities(data, centroids)
+        sorted_transition_probabilities, sorted_labels = sort_matrix_and_labels(transition_probabilities)
+
+        plt.figure(figsize=(10, 8))
+        cax = plt.matshow(sorted_transition_probabilities, cmap='viridis', fignum=1)
+        for i in range(len(sorted_labels)):
+            for j in range(len(sorted_labels)):
+                plt.text(j, i, f'{sorted_transition_probabilities[i, j]:.2f}%', ha='center', va='center', color='white')
+
+        ticks = np.arange(len(sorted_labels))
+        plt.xticks(ticks, sorted_labels)
+        plt.yticks(ticks, sorted_labels)
+        plt.xlabel('To Centroid')
+        plt.ylabel('From Centroid')
+        plt.title(f'Sorted Transition Probability Matrix (in percentages) for {root}')
+        cbar = plt.colorbar(cax, label='Probability (%)')
+        plt.tight_layout(pad=3.0)
+
+        save_folder_path = os.path.join(root, 'graphs')
+        if not os.path.exists(save_folder_path):
+            os.makedirs(save_folder_path)
+
+        save_file_path = os.path.join(save_folder_path, 'sorted_transition_probability_matrix.png')
+        plt.savefig(save_file_path)
+        plt.close()
+
+        print(f"Sorted transition probability matrix saved in folder: {save_folder_path}")

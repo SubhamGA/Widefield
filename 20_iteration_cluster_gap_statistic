@@ -1,0 +1,64 @@
+import numpy as np
+import pandas as pd
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+import os
+import time
+
+def compute_Wk(data, n_clusters):
+    kmeans = KMeans(n_clusters=n_clusters, n_init=10, random_state=1)
+    kmeans.fit(data)
+    return kmeans.inertia_
+
+def gap_statistic(data, n_refs=3, max_clusters=20):
+    gaps = np.zeros((max_clusters-1,))
+    resultsdf = pd.DataFrame({'clusterCount':[], 'gap':[]})
+    for gap_index, k in enumerate(range(1, max_clusters)):
+        refDisps = np.zeros(n_refs)
+        for i in range(n_refs):
+            # Create new random reference set
+            randomReference = np.random.random_sample(size=data.shape)
+            
+            # Fit to it
+            refDisps[i] = compute_Wk(randomReference, k)
+
+        origDisp = compute_Wk(data, k)
+        gap = np.log(np.mean(refDisps)) - np.log(origDisp)
+        gaps[gap_index] = gap
+
+        # Using pd.concat instead of append
+        new_row = pd.DataFrame({'clusterCount':[k], 'gap':[gap]})
+        resultsdf = pd.concat([resultsdf, new_row], ignore_index=True)
+
+    return (gaps.argmax() + 1, resultsdf)
+
+main_folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/'
+# main_folder_path = '/Users/subham/Python/Downsampled_Data/'
+
+gap_statistics = {}  # Dictionary to store gap statistics for each file
+
+for root, dirs, files in os.walk(main_folder_path):
+    for file_name in files:
+        if file_name.endswith('.npy') and 'Downsampled_Data' in file_name:
+            print(f"Processing {root, file_name}...")  # Verbose output
+            start_time = time.time()  # Start timer
+
+            data = np.load(os.path.join(root, file_name))
+            optimalK, gapdf = gap_statistic(data, n_refs=5, max_clusters=10)
+            gap_statistics[file_name] = (optimalK, gapdf)
+
+            end_time = time.time()  # End timer
+            print(f"Completed {file_name}. Time taken: {end_time - start_time:.2f} seconds.\n")  # Display time taken
+
+# Plotting all results on a single graph
+plt.figure(figsize=(10, 6))
+for file_name, (optimalK, gapdf) in gap_statistics.items():
+    plt.plot(gapdf.clusterCount, gapdf.gap, marker='o', label=f'{file_name} (Optimal: {optimalK})')
+    plt.scatter(optimalK, gapdf[gapdf.clusterCount == optimalK].gap.iloc[0], s=100, c='r')
+
+plt.xlabel('Cluster Count')
+plt.ylabel('Gap Value')
+plt.title('Gap Values by Cluster Count for All Subjects')
+plt.legend()
+plt.grid(True)
+plt.show()

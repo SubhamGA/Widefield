@@ -1,0 +1,80 @@
+import numpy as np
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+from kneed import KneeLocator
+import os
+import time
+
+main_folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/'
+
+all_inertia_values = []
+all_cluster_numbers = []
+optimal_cluster_numbers = []
+legend_labels = []
+
+for root, dirs, files in os.walk(main_folder_path):
+    for file_name in files:
+        if file_name.endswith('.npy') and 'Downsampled_Data' in file_name:
+            folder_path_parts = root.split('/')
+            folder_index = folder_path_parts.index('Downsampled_Data')
+            legend_label = folder_path_parts[folder_index + 1] if folder_index < len(folder_path_parts) - 1 else "Unknown"
+
+            data = np.load(os.path.join(root, file_name))
+
+            all_inertia_iter = []
+
+            n_iterations = 20
+
+            for iteration in range(n_iterations):
+                iteration_start_time = time.time()
+
+                random_indices = np.random.choice(data.shape[0], 1000, replace=False)
+                subset_data = data[random_indices]
+
+                inertia_values = []
+
+                for n_clusters in range(2, 21):
+                    kmeans_model = KMeans(n_clusters=n_clusters, n_init=10, random_state=1)
+                    kmeans_model.fit(subset_data)
+                    inertia = kmeans_model.inertia_
+                    inertia_values.append(inertia)
+
+                all_inertia_iter.append(inertia_values)
+
+                iteration_end_time = time.time()
+                print(f"Iteration {iteration + 1}/{n_iterations} for '{legend_label}' took {iteration_end_time - iteration_start_time:.2f} seconds")
+
+            avg_inertia_values = np.mean(all_inertia_iter, axis=0)
+            all_inertia_values.append(avg_inertia_values)
+            all_cluster_numbers.append(list(range(2, 21)))
+
+            folder_path_parts = root.split('/')
+            folder_index = folder_path_parts.index('Downsampled_Data')
+            if folder_index < len(folder_path_parts) - 1:
+                legend_label = folder_path_parts[folder_index + 1]
+                legend_labels.append(legend_label)
+
+# Modify this part to identify the elbow point manually or algorithmically
+# This is a simple approach to visually inspect the plot
+# For a more automated approach, consider techniques like the Kneedle algorithm
+
+plt.figure(figsize=(10, 6))
+
+for i, (inertias, clusters) in enumerate(zip(all_inertia_values, all_cluster_numbers)):
+    plt.plot(clusters, inertias, marker='o', label=legend_labels[i])
+    
+    # Implementing Kneedle algorithm to find the elbow point
+    kneedle = KneeLocator(clusters, inertias, curve='convex', direction='decreasing')
+    elbow_point = kneedle.elbow
+
+    # Marking the elbow point on the plot
+    if elbow_point is not None:
+        plt.scatter(elbow_point, inertias[clusters.index(elbow_point)], color='red', s=100, edgecolor='black', zorder=5)
+
+plt.xlabel('Number of Clusters')
+plt.ylabel('Inertia (Sum of Squared Distances)')
+plt.title('Elbow Method for Determining Optimal Clusters (20 Iterations of 1000 Time Points Each)')
+plt.legend()
+plt.grid(True)
+
+plt.show()

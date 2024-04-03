@@ -1,0 +1,105 @@
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn import metrics
+import matplotlib.pyplot as plt
+from kneed import KneeLocator
+import os
+import time
+
+# Define the main folder path where your data files and subfolders are located
+main_folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/'
+
+# Initialize lists to store averaged silhouette scores, cluster numbers, and optimal clusters
+all_avg_silhouette_scores = []
+all_cluster_numbers = []
+optimal_cluster_numbers = []
+legend_labels = []  # To store legend labels
+
+# Create results folder if it doesn't exist
+results_folder_path = os.path.join(main_folder_path, 'Results')
+if not os.path.exists(results_folder_path):
+    os.makedirs(results_folder_path)
+
+# Recursively search for data files in the main folder and its subfolders
+for root, dirs, files in os.walk(main_folder_path):
+    for file_name in files:
+        if file_name.endswith('.npy') and 'Downsampled_Data' in file_name:
+            # Extract the folder name containing 'Downsampled_Data' as legend label
+            folder_path_parts = root.split('/')
+            folder_index = folder_path_parts.index('Downsampled_Data')
+            legend_label = folder_path_parts[folder_index + 1] if folder_index < len(folder_path_parts) - 1 else "Unknown"
+            legend_labels.append(legend_label)
+
+            # Load the data
+            data = np.load(os.path.join(root, file_name))
+            all_silhouette_scores_iter = []
+            n_iterations = 20
+
+            # Perform iterations for averaging silhouette scores
+            for iteration in range(n_iterations):
+                iteration_start_time = time.time()
+
+                # Select a random subset of 1000 time points
+                random_indices = np.random.choice(data.shape[0], 1000, replace=False)
+                subset_data = data[random_indices]
+                silhouette_scores = []
+
+                # Compute silhouette scores for a range of cluster numbers
+                for n_clusters in range(2, 21):
+                    kmeans_model = KMeans(n_clusters=n_clusters, n_init=10, random_state=1)
+                    labels = kmeans_model.fit_predict(subset_data)
+                    silhouette_score = metrics.silhouette_score(subset_data, labels, metric='euclidean')
+                    silhouette_scores.append(silhouette_score)
+
+                all_silhouette_scores_iter.append(silhouette_scores)
+                iteration_end_time = time.time()
+                print(f"Iteration {iteration + 1}/{n_iterations} for '{legend_label}' took {iteration_end_time - iteration_start_time:.2f} seconds")
+
+            # Calculate the average silhouette scores across iterations
+            avg_silhouette_scores = np.mean(all_silhouette_scores_iter, axis=0)
+            all_avg_silhouette_scores.append(avg_silhouette_scores)
+            all_cluster_numbers.append(list(range(2, 21)))
+
+            # Find the index of the maximum silhouette score and calculate the optimal cluster number
+            max_score_idx = np.argmax(avg_silhouette_scores)
+            kneedle = KneeLocator(range(2, 21)[max_score_idx:], avg_silhouette_scores[max_score_idx:], curve='concave', direction='decreasing')
+            optimal_cluster_number = kneedle.knee if kneedle.knee else range(2, 21)[max_score_idx] + 2
+            optimal_cluster_numbers.append(optimal_cluster_number)
+
+# Save the results to .npy files for future use
+for i, file_name in enumerate(files):
+    if file_name.endswith('.npy') and 'Downsampled_Data' in file_name:
+        unique_id = legend_labels[i]
+        np.save(os.path.join(results_folder_path, f"{unique_id}_silhouette_scores.npy"), all_avg_silhouette_scores[i])
+        np.save(os.path.join(results_folder_path, f"{unique_id}_optimal_clusters.npy"), optimal_cluster_numbers[i])
+
+# Plot the silhouette scores and optimal clusters
+plt.figure(figsize=(10, 6))
+for i, (scores, clusters) in enumerate(zip(all_avg_silhouette_scores, all_cluster_numbers)):
+    plt.plot(clusters, scores, marker='o', label=legend_labels[i])
+    
+    # Exclude the initial sharp increase before applying KneeLocator
+    # You might need to adjust the number of points to skip based on your data
+    points_to_skip = 3
+    max_score_idx = np.argmax(scores)
+    if max_score_idx > points_to_skip:
+        scores_to_use = scores[points_to_skip:max_score_idx+1]
+        clusters_to_use = clusters[points_to_skip:max_score_idx+1]
+        kneedle = KneeLocator(clusters_to_use, scores_to_use, curve='convex', direction='decreasing')
+        optimal_cluster_number = kneedle.knee if kneedle.knee else clusters[max_score_idx] + 2
+    else:
+        optimal_cluster_number = clusters[max_score_idx] + 2
+    optimal_cluster_numbers[i] = optimal_cluster_number
+    
+    # Marking the optimal cluster number
+    if optimal_cluster_number:
+        optimal_score = scores[clusters.index(optimal_cluster_number)]
+        plt.scatter(optimal_cluster_number, optimal_score, color='red', s=100, edgecolor='black', zorder=5)
+        
+plt.xlabel('Number of Clusters')
+plt.ylabel('Average Silhouette Score')
+plt.title('Average Silhouette Scores vs. Number of Clusters for Multiple Datasets (20 Iterations of 1000 Time Points Each)')
+plt.legend()
+plt.grid(True)
+
+plt.show()

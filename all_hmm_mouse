@@ -1,0 +1,53 @@
+import numpy as np
+import os
+from hmmlearn import hmm
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+# Define the main folder path where your data files and subfolders are located
+main_folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/'
+# main_folder_path = '/Users/subham/Python/Downsampled_Data/'
+
+# Recursively search for data files in the main folder and its subfolders
+for root, dirs, files in os.walk(main_folder_path):
+    if 'Downsampled_Data.npy' in files and 'Pixel_Indicies.npy' in files:
+        data_path = os.path.join(root, 'Downsampled_Data.npy')
+        indices_path = os.path.join(root, 'Pixel_Indicies.npy')
+        
+        data = np.load(data_path)
+        indices = np.load(indices_path)
+
+        model = hmm.GaussianHMM(n_components=5, verbose=True, n_iter=100)
+        model.fit(data, lengths=None)
+        model_means = model.means_
+
+        # Save model_means to a file
+        np.save(os.path.join(root, 'model_means.npy'), model_means)
+
+        # Create a figure with subplots for each component
+        fig, axs = plt.subplots(1, 5, figsize=(25, 5))  # Adjusted for 5 subplots
+
+        for component_id, mean in enumerate(model_means):
+            ax = axs[component_id]  # Adjust indexing for 1x5 grid
+            template = np.zeros((100, 100))
+            
+            for i, index in enumerate(indices):
+                row, col = divmod(index - 1, 100)
+                template[row, col] = mean[i]
+            
+            ax.imshow(template, cmap='viridis', vmin=-0.05, vmax=0.05)
+            ax.set_title(f'Component {component_id + 1}')
+
+        plt.tight_layout()
+
+        # Save folder path for graphs
+        save_folder_path = os.path.join(root, 'graphs')
+        if not os.path.exists(save_folder_path):
+            os.makedirs(save_folder_path)
+
+        # Save the figure
+        save_file_path = os.path.join(save_folder_path, 'hmm_model_means.png')
+        plt.savefig(save_file_path)
+        plt.close()
+
+        print(f"HMM model means image saved in folder: {save_folder_path}")

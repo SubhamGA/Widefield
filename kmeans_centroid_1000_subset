@@ -1,0 +1,36 @@
+import numpy as np
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+import os
+
+# Load your mouse brain data from file
+folder_path = '/Users/subham/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/'
+# folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/'
+data = np.load(os.path.join(folder_path, 'Downsampled_Data.npy'))
+
+def centroid_calculator(data):
+    # Select a random subset of 1000 time points from the total 22382 time points
+    random_indices = np.random.choice(data.shape[0], 1000, replace=False)
+    subset_data = data[random_indices]
+
+    # Lists to store cluster labels and centroids
+    cluster_labels = []
+    cluster_centroids = []
+
+    # Number of clusters
+    n_clusters = 5
+
+    # Perform K-means clustering
+    kmeans_model = KMeans(n_clusters=n_clusters, n_init=10, random_state=1)
+    labels = kmeans_model.fit_predict(subset_data)
+
+    # Get cluster centroids
+    centroids = kmeans_model.cluster_centers_
+
+    return centroids
+
+centroids = centroid_calculator(data)
+
+print(centroids)
+centroid_shape = centroids.shape
+print("Centroids Shape:", centroid_shape)

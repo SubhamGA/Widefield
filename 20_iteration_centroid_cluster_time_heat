@@ -1,0 +1,62 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+
+# Define the main folder path where your data files and subfolders are located
+# main_folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/'
+main_folder_path = '/Users/subham/Python/Downsampled_Data/'
+
+# Function to calculate the correlation matrix
+def calculate_correlation_matrix(data, centroids):
+    num_centroid_rows = centroids.shape[0]
+    num_time_points = data.shape[0]
+    correlation_matrix = np.zeros((num_centroid_rows, num_time_points))
+
+    for i in range(num_centroid_rows):
+        centroid_row = centroids[i, :]
+        for j in range(num_time_points):
+            data_row = data[j, :]
+            correlation = np.corrcoef(centroid_row, data_row)[0, 1]
+            correlation_matrix[i, j] = correlation
+
+    return correlation_matrix
+
+# Recursively search for data files in the main folder and its subfolders
+for root, dirs, files in os.walk(main_folder_path):
+    if 'Downsampled_Data.npy' in files:
+        # Load the data from the current file paths
+        data_path = os.path.join(root, 'Downsampled_Data.npy')
+        data = np.load(data_path)
+
+        # Path for centroids in the subfolder '20_cluster_patterns'
+        centroids_path = os.path.join(root, '20_cluster_patterns', '5finalcentroids.npy')
+        if os.path.exists(centroids_path):
+            centroids = np.load(centroids_path)
+        else:
+            print(f"Centroids file not found for: {root}")
+            continue  # Skip this folder if centroids file is not found
+
+        # Calculate the correlation matrix
+        correlation_matrix = calculate_correlation_matrix(data, centroids)
+
+        # Plotting the correlation matrix as a heatmap
+        plt.figure(figsize=(10, 6))
+        cmap = plt.get_cmap('coolwarm', 20)
+        plt.imshow(correlation_matrix, cmap=cmap, aspect='auto', vmin=-1, vmax=1)
+        plt.xlabel('Time')
+        plt.ylabel('Centroid Rows')
+        plt.title(f'Correlation Between Centroid Rows and Data Over Time ({root})')
+        plt.colorbar(label='Correlation Coefficient')
+        plt.grid(False)
+
+        # Save folder path for graphs
+        save_folder_path = os.path.join(root, 'graphs')
+        if not os.path.exists(save_folder_path):
+            os.makedirs(save_folder_path)  # Create the folder if it does not exist
+
+        # Save the figure
+        save_file_path = os.path.join(save_folder_path, 'correlation_heatmap.png')
+        plt.savefig(save_file_path)
+        plt.close()
+
+        print(f"Correlation heatmap saved at: {save_file_path}")

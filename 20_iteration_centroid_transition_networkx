@@ -1,0 +1,73 @@
+import numpy as np
+import networkx as nx
+import matplotlib.pyplot as plt
+import os
+
+# Define the main folder path where your data files and subfolders are located
+main_folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/'
+# main_folder_path = '/Users/subham/Python/Downsampled_Data/'
+
+# Function to calculate transition probabilities
+def calculate_transition_probabilities(data, centroids):
+    num_centroid_rows = centroids.shape[0]
+    num_time_points = data.shape[0]
+    most_correlated_centroids = np.zeros(num_time_points, dtype=int)
+    for t in range(num_time_points):
+        correlations = [np.corrcoef(centroids[i, :], data[t, :])[0, 1] for i in range(num_centroid_rows)]
+        most_correlated_centroids[t] = np.argmax(correlations) + 1
+
+    transition_counts = np.zeros((num_centroid_rows, num_centroid_rows), dtype=int)
+    for t in range(1, num_time_points):
+        previous_centroid = most_correlated_centroids[t - 1]
+        current_centroid = most_correlated_centroids[t]
+        transition_counts[previous_centroid - 1, current_centroid - 1] += 1
+
+    transition_probabilities = (transition_counts / num_time_points) * 100
+    return transition_probabilities
+
+# Recursively search for data files in the main folder and its subfolders
+for root, dirs, files in os.walk(main_folder_path):
+    if 'Downsampled_Data.npy' in files:
+        data_path = os.path.join(root, 'Downsampled_Data.npy')
+        centroids_path = os.path.join(root, '20_cluster_patterns', '5finalcentroids.npy')
+        if os.path.exists(centroids_path):
+            data = np.load(data_path)
+            centroids = np.load(centroids_path)
+        else:
+            print(f"Centroids file not found for: {root}")
+            continue
+
+        transition_probabilities = calculate_transition_probabilities(data, centroids)
+
+        # Create a NetworkX graph
+        G = nx.DiGraph()
+        num_centroids = centroids.shape[0]
+        for i in range(num_centroids):
+            G.add_node(i + 1)
+
+        for i in range(num_centroids):
+            for j in range(num_centroids):
+                weight = transition_probabilities[i, j]
+                if weight > 0:  # Add only non-zero transitions
+                    G.add_edge(i + 1, j + 1, weight=weight)
+
+        pos = nx.spring_layout(G)
+        labels = {i: f'Centroid {i}' for i in range(1, num_centroids + 1)}
+        edge_labels = {(u, v): f'{d["weight"]:.2f}%' for u, v, d in G.edges(data=True)}
+
+        plt.figure(figsize=(10, 8))
+        nx.draw(G, pos, with_labels=True, labels=labels, node_size=500, node_color='skyblue')
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+        plt.title('Centroid Transition Probability Network')
+
+        # Save folder path for graphs
+        save_folder_path = os.path.join(root, 'graphs')
+        if not os.path.exists(save_folder_path):
+            os.makedirs(save_folder_path)
+
+        # Save the figure
+        save_file_path = os.path.join(save_folder_path, 'centroid_transition_network.png')
+        plt.savefig(save_file_path)
+        plt.close()
+
+        print(f"Centroid transition network saved in folder: {save_folder_path}")

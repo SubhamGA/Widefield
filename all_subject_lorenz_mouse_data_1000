@@ -1,0 +1,77 @@
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn import metrics
+import matplotlib.pyplot as plt
+import os
+import time
+
+# Define the main folder path where your data files and subfolders are located
+main_folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/'
+# main_folder_path = '/Users/subham/Python/Downsampled_Data/'
+
+# Initialize lists to store silhouette scores and cluster numbers for each dataset
+all_silhouette_scores = []
+all_cluster_numbers = []
+legend_labels = []  # To store legend labels
+
+# Recursively search for data files in the main folder and its subfolders
+for root, dirs, files in os.walk(main_folder_path):
+    for file_name in files:
+        if file_name.endswith('.npy') and 'Downsampled_Data' in file_name:
+            # Load the data from the current file
+            data = np.load(os.path.join(root, file_name))
+
+            # Lists to store silhouette scores and cluster numbers for this dataset
+            silhouette_scores = []
+            cluster_numbers = []
+
+            # Select a random subset of 1000 time points from the total
+            random_indices = np.random.choice(data.shape[0], 1000, replace=False)
+            subset_data = data[random_indices]
+
+            # Record the start time
+            start_time = time.time()
+
+            # Iterate over a range of cluster numbers (2 to 20)
+            for n_clusters in range(2, 21):
+                kmeans_model = KMeans(n_clusters=n_clusters, n_init=10, random_state=1)
+                labels = kmeans_model.fit_predict(subset_data)
+
+                # Evaluate clustering performance using silhouette score
+                silhouette_score = metrics.silhouette_score(subset_data, labels, metric='euclidean')
+
+                # Append silhouette score and cluster number to lists
+                silhouette_scores.append(silhouette_score)
+                cluster_numbers.append(n_clusters)
+
+            # Record the end time
+            end_time = time.time()
+
+            # Append the scores and cluster numbers for this dataset to the overall lists
+            all_silhouette_scores.append(silhouette_scores)
+            all_cluster_numbers.append(cluster_numbers)
+
+            # Extract the folder name containing 'Downsampled_Data' as legend label
+            folder_path_parts = root.split('/')
+            folder_index = folder_path_parts.index('Downsampled_Data')
+            if folder_index < len(folder_path_parts) - 1:
+                legend_label = folder_path_parts[folder_index + 1]
+                legend_labels.append(legend_label)
+
+            # Calculate and print the elapsed time
+            elapsed_time = end_time - start_time
+            print(f"Elapsed Time for '{legend_label}': {elapsed_time:.2f} seconds")
+
+# Plot silhouette scores vs. number of clusters for all datasets
+plt.figure(figsize=(10, 6))
+for i, (scores, clusters) in enumerate(zip(all_silhouette_scores, all_cluster_numbers)):
+    plt.plot(clusters, scores, marker='o', label=legend_labels[i])
+
+plt.xlabel('Number of Clusters')
+plt.ylabel('Silhouette Score')
+plt.title('Silhouette Scores vs. Number of Clusters for Multiple Datasets (Subset of 1000 Time Points)')
+plt.legend()
+plt.grid(True)
+
+# Show the plot
+plt.show()

@@ -1,0 +1,100 @@
+import numpy as np
+import pandas as pd
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+from kneed import KneeLocator
+import os
+import time
+
+# Function to compute inertia
+def compute_Wk(data, n_clusters):
+    kmeans = KMeans(n_clusters=n_clusters, n_init=10, random_state=1)
+    kmeans.fit(data)
+    return kmeans.inertia_
+
+# Function to calculate the gap statistic
+def gap_statistic(data, n_refs=3, max_clusters=20):
+    gaps = np.zeros((max_clusters-1,))
+    resultsdf = pd.DataFrame({'clusterCount':[], 'gap':[]})
+    for gap_index, k in enumerate(range(1, max_clusters)):
+        refDisps = np.zeros(n_refs)
+        for i in range(n_refs):
+            randomReference = np.random.random_sample(size=data.shape)
+            refDisps[i] = compute_Wk(randomReference, k)
+        origDisp = compute_Wk(data, k)
+        gap = np.log(np.mean(refDisps)) - np.log(origDisp)
+        gaps[gap_index] = gap
+        new_row = pd.DataFrame({'clusterCount':[k], 'gap':[gap]})
+        resultsdf = pd.concat([resultsdf, new_row], ignore_index=True)
+    return (gaps.argmax() + 1, resultsdf)
+
+# Define main and results folder paths
+main_folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/'
+results_folder_path = os.path.join(main_folder_path, 'Results')
+
+# Create results folder if it doesn't exist
+if not os.path.exists(results_folder_path):
+    os.makedirs(results_folder_path)
+
+# Variables to hold the collected data
+all_gap_data = []
+all_kneedle_points = []
+all_legend_labels = []
+
+# Processing the data files
+for root, dirs, files in os.walk(main_folder_path):
+    for file_name in files:
+        if file_name.endswith('.npy') and 'Downsampled_Data' in file_name:
+            # Start time
+            start_time = time.time()
+
+            # Extracting parent folder name
+            subject_name = os.path.basename(os.path.dirname(root))
+
+            # Load the data
+            data = np.load(os.path.join(root, file_name))
+            optimalK, gapdf = gap_statistic(data, n_refs=5, max_clusters=20)
+            
+            # Use Kneedle to find the knee point
+            kneedle = KneeLocator(gapdf.clusterCount, gapdf.gap, curve='concave', direction='increasing', S=1)
+            kneedle_k = kneedle.knee
+            
+            # If no knee is found or if the knee is at the end of the curve, we might choose to use a different approach
+            if kneedle_k is None or kneedle_k == max(gapdf.clusterCount):
+                print(f"Kneedle did not find a clear knee for {subject_name}. Consider manual inspection or alternative methods.")
+                # In case no clear knee is found, you might want to append None or a specific value indicating this
+                all_kneedle_points.append(None)  # This line is modified
+            else:
+                # Store the Kneedle point
+                all_kneedle_points.append(kneedle_k)  # Moved this line into the else clause
+
+            # Store the gap data
+            all_gap_data.append(gapdf)
+            all_legend_labels.append(file_name)  # Using the file name as the legend label
+
+
+            # Save the gap data and Kneedle point using subject_name
+            gap_data_file = os.path.join(results_folder_path, f"{subject_name}_gap_data.npy")
+            np.save(gap_data_file, gapdf.to_numpy())
+
+            kneedle_point_file = os.path.join(results_folder_path, f"{subject_name}_kneedle_point.npy")
+            np.save(kneedle_point_file, np.array([kneedle_k]))
+
+            # End time and print the processing time for the file
+            end_time = time.time()
+            processing_time = end_time - start_time
+            print(f"Processed {subject_name} in {processing_time:.2f} seconds.")
+
+# Plotting is separate from processing and saving
+plt.figure(figsize=(10, 6))
+for gapdf, kneedle_k, legend_label in zip(all_gap_data, all_kneedle_points, all_legend_labels):
+    plt.plot(gapdf.clusterCount, gapdf.gap, marker='o', label=f'{legend_label} (Kneedle: {kneedle_k})')
+    if kneedle_k:
+        plt.scatter(kneedle_k, gapdf[gapdf.clusterCount == kneedle_k].gap.iloc[0], s=100, c='r')
+
+plt.xlabel('Cluster Count')
+plt.ylabel('Gap Value')
+plt.title('Combined Gap Values by Cluster Count for All Files')
+plt.legend()
+plt.grid(True)
+plt.show()

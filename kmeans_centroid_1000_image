@@ -1,0 +1,70 @@
+import numpy as np
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+import os
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+# Folder Path of data and indices
+folder_path = '/Users/subham/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/'
+# folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/'
+
+# Load your data from file
+data = np.load(os.path.join(folder_path, 'Downsampled_Data.npy'))
+
+# Function to calculate centroids
+def centroid_calculator(data):
+    # Select a random subset of 1000 time points from the total 22382 time points
+    random_indices = np.random.choice(data.shape[0], 1000, replace=False)
+    subset_data = data[random_indices]
+
+    # Number of clusters
+    n_clusters = 5
+
+    # Perform K-means clustering
+    kmeans_model = KMeans(n_clusters=n_clusters, n_init=10, random_state=1)
+    labels = kmeans_model.fit_predict(subset_data)
+
+    # Get cluster centroids
+    centroids = kmeans_model.cluster_centers_
+
+    return labels, centroids
+
+labels, centroids = centroid_calculator(data)
+
+# Load the pixel indices
+indices = np.load(os.path.join(folder_path, 'Pixel_Indicies.npy'))
+
+#New folder path to save the combined image
+save_folder_path = '/Users/subham/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/20_cluster_patterns/'
+
+# Create a figure with subplots for each cluster
+fig, axs = plt.subplots(1, 5, figsize=(15, 3))
+
+# Loop through each centroid and create an image
+for cluster_id, centroid in enumerate(centroids):
+    plt.sca(axs[cluster_id])
+    
+    # Create an empty template matrix of size 100x100
+    template = np.zeros((100, 100))
+    
+    # Update the template matrix using indices
+    for i, index in enumerate(indices):
+        row, col = divmod(index - 1, 100)  # Convert 1D index to 2D coordinates
+        template[row, col] = centroid[i]  # Use centroid values for this cluster
+    
+    # Create a heatmap to visualize the template matrix
+    plt.imshow(template, cmap='viridis', vmin=-0.05, vmax=0.05)
+    plt.title(f'Cluster {cluster_id + 1}')
+
+# Create a canvas to save the entire figure
+canvas = FigureCanvas(fig)
+
+# Save centroids as a file
+np.save(os.path.join(save_folder_path, 'centroids.npy'), centroids)
+
+# Save the figure as one large image
+canvas.print_figure(os.path.join(save_folder_path, 'clusters_combined.png'))
+
+# Display the images side by side
+plt.tight_layout()
+plt.show()

@@ -1,0 +1,43 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import animation  # Import the animation module
+import os 
+
+# Folder Path of data and indices
+folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/'
+# folder_path = '/Users/subham/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/'
+
+# Load your data from file
+data = np.load(os.path.join(folder_path, 'Downsampled_Data.npy'))
+
+# Load the pixel indices 
+indices = np.load(os.path.join(folder_path, 'Pixel_Indicies.npy'))
+
+# Create an empty template matrix of size 100x100
+template = np.zeros((100, 100))
+
+# Create a figure for the animation
+fig = plt.figure()
+
+# Function to update the template for each frame
+def update(frame):
+    # Clear the previous frame
+    plt.clf()
+
+    # Get the pixel intensity values for the current frame
+    intensities = data[frame]
+
+    # Update the template matrix using indices
+    for i, index in enumerate(indices):
+        row, col = divmod(index - 1, 100)  # Convert 1D index to 2D coordinates
+        template[row, col] = intensities[i]
+
+    # Create a heatmap to visualize the template matrix
+    plt.imshow(template, cmap='viridis', vmin=-0.05, vmax=0.05)
+    plt.title(f'Frame {frame+1}')
+
+# Create the animation
+ani = animation.FuncAnimation(fig, update, frames=len(data), interval=100)
+
+# Display the animation or save it as a video file
+plt.show()  # Use plt.savefig('output.gif') to save as a GIF

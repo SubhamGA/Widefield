@@ -1,0 +1,87 @@
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn import metrics
+import matplotlib.pyplot as plt
+import os
+import time
+
+# Define the main folder path where your data files and subfolders are located
+main_folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/'
+# main_folder_path = '/Users/subham/Python/Downsampled_Data/'
+
+# Initialize lists to store averaged silhouette scores and cluster numbers for each dataset
+all_avg_silhouette_scores = []
+all_cluster_numbers = []
+legend_labels = []  # To store legend labels
+
+# Recursively search for data files in the main folder and its subfolders
+for root, dirs, files in os.walk(main_folder_path):
+    for file_name in files:
+        if file_name.endswith('.npy') and 'Downsampled_Data' in file_name:
+            # Extract the folder name containing 'Downsampled_Data' as legend label
+            folder_path_parts = root.split('/')
+            folder_index = folder_path_parts.index('Downsampled_Data')
+            legend_label = folder_path_parts[folder_index + 1] if folder_index < len(folder_path_parts) - 1 else "Unknown"
+
+            data = np.load(os.path.join(root, file_name))
+
+            # Initialize a list to store the silhouette scores for 20 iterations
+            all_silhouette_scores_iter = []
+
+            # Number of iterations for averaging
+            n_iterations = 20
+
+            # Perform 20 iterations
+            for iteration in range(n_iterations):
+                iteration_start_time = time.time()  # Start time for the iteration
+
+                # Select a random subset of 1000 time points
+                random_indices = np.random.choice(data.shape[0], 1000, replace=False)
+                subset_data = data[random_indices]
+
+                # Lists to store silhouette scores for this iteration
+                silhouette_scores = []
+
+                # Iterate over a range of cluster numbers (2 to 20)
+                for n_clusters in range(2, 21):
+                    kmeans_model = KMeans(n_clusters=n_clusters, n_init=10, random_state=1)
+                    labels = kmeans_model.fit_predict(subset_data)
+
+                    # Evaluate clustering performance using silhouette score
+                    silhouette_score = metrics.silhouette_score(subset_data, labels, metric='euclidean')
+                    silhouette_scores.append(silhouette_score)
+
+                # Append the silhouette scores of this iteration
+                all_silhouette_scores_iter.append(silhouette_scores)
+
+                iteration_end_time = time.time()  # End time for the iteration
+                iteration_time = iteration_end_time - iteration_start_time  # Calculate iteration time
+                print(f"Iteration {iteration + 1}/{n_iterations} for '{legend_label}' took {iteration_time:.2f} seconds")
+
+            # Calculate the average silhouette scores across iterations
+            avg_silhouette_scores = np.mean(all_silhouette_scores_iter, axis=0)
+
+            # Append the averaged scores for this dataset to the overall list
+            all_avg_silhouette_scores.append(avg_silhouette_scores)
+            all_cluster_numbers.append(list(range(2, 21)))
+
+            # Extract the folder name containing 'Downsampled_Data' as legend label
+            folder_path_parts = root.split('/')
+            folder_index = folder_path_parts.index('Downsampled_Data')
+            if folder_index < len(folder_path_parts) - 1:
+                legend_label = folder_path_parts[folder_index + 1]
+                legend_labels.append(legend_label)
+
+# Plot average silhouette scores vs. number of clusters for all datasets
+plt.figure(figsize=(10, 6))
+for i, (scores, clusters) in enumerate(zip(all_avg_silhouette_scores, all_cluster_numbers)):
+    plt.plot(clusters, scores, marker='o', label=legend_labels[i])
+
+plt.xlabel('Number of Clusters')
+plt.ylabel('Average Silhouette Score')
+plt.title('Average Silhouette Scores vs. Number of Clusters for Multiple Datasets (20 Iterations of 1000 Time Points Each)')
+plt.legend()
+plt.grid(True)
+
+# Show the plot
+plt.show()

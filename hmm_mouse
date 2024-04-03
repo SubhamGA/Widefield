@@ -1,0 +1,46 @@
+import numpy as np
+import os
+from hmmlearn import hmm
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+# Folder Path of data and indices
+folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/'
+# folder_path = '/Users/subham/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/
+
+# Load your data from file
+data = np.load(os.path.join(folder_path, 'Downsampled_Data.npy'))
+indices = np.load(os.path.join(folder_path, 'Pixel_Indicies.npy'))
+
+model = hmm.GaussianHMM(n_components=10, verbose=True, n_iter=100)
+model.fit(data, lengths=None)
+
+# Extract the means from the model
+model_means = model.means_
+
+# Save model_means to a file
+np.save(os.path.join(folder_path, 'model_means.npy'), model_means)
+
+# Create a figure with subplots for each component
+fig, axs = plt.subplots(2, 5, figsize=(25, 6))  # Adjusted to create 10 subplots
+
+# Loop through each model mean and create an image
+for component_id, mean in enumerate(model_means):
+    ax = axs[component_id // 5, component_id % 5]  # Adjust indexing for 2x5 grid
+    plt.sca(ax)
+    
+    # Create an empty template matrix of size 100x100
+    template = np.zeros((100, 100))
+    
+    # Update the template matrix using indices
+    for i, index in enumerate(indices):
+        row, col = divmod(index - 1, 100)  # Convert 1D index to 2D coordinates
+        template[row, col] = mean[i]  # Use mean values for this component
+    
+    # Create a heatmap to visualize the template matrix
+    ax.imshow(template, cmap='viridis', vmin=-0.05, vmax=0.05)
+    ax.set_title(f'Component {component_id + 1}')
+
+# Display the images side by side
+plt.tight_layout()
+plt.show()

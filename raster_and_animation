@@ -1,0 +1,89 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import animation
+import os
+
+def create_raster_plot(data, vmin, vmax):
+    """
+    Create a raster plot from the given data.
+
+    Parameters:
+    - data: 2D numpy array representing the data to be plotted.
+    - vmin: Minimum value for the color scale.
+    - vmax: Maximum value for the color scale.
+
+    Returns:
+    None
+    """
+    # transpose the data to have time at x and pixel at y
+    # Plot raster of the data with color scale range
+    data = data.T
+    plt.imshow(data, cmap='viridis', origin='lower', aspect='auto', vmin=vmin, vmax=vmax)
+    plt.title('Raster Plot of Brain Activity')
+    plt.xlabel('Time Rows')
+    plt.ylabel('Pixel Columns')
+    plt.colorbar()  # Add a colorbar to the plot
+    plt.show()
+
+def animation_activity(data, indices, vmin, vmax):
+    """
+    Animate the change of pixel intensity over time.
+
+    Parameters:
+    - data: 2D numpy array representing the data to be plotted.
+    - indices: List of pixel coordinates representing important pixels.
+    - vmin: Minimum value for the color scale.
+    - vmax: Maximum value for the color scale.
+
+    Returns:
+    None
+    """
+
+    # Create an empty template matrix of size 100x100
+    template = np.zeros((100, 100))
+
+    # Create a figure for the animation
+    fig = plt.figure()
+
+    # Function to update the template for each frame
+    def update(frame):
+        # Clear the previous frame
+        plt.clf()
+
+        # Get the pixel intensity values for the current frame
+        intensities = data[frame]
+
+        # Update the template matrix using indices
+        for i, index in enumerate(indices):
+            row, col = divmod(index - 1, 100)  # Convert 1D index to 2D coordinates
+            template[row, col] = intensities[i]
+
+        # Create a heatmap to visualize the template matrix
+        plt.imshow(template, cmap='viridis', vmin=-0.05, vmax=0.05)
+        plt.title(f'Frame {frame+1}')
+
+    # Create the animation
+    ani = animation.FuncAnimation(fig, update, frames=len(data), interval=50)
+
+    # Display the animation or save it as a video file
+    plt.show()  # Use plt.savefig('output.gif') to save as a GIF
+
+# Folder Path of data and indices
+folder_path = '/Users/subham/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/'
+# folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/'
+
+# Load your data from file
+data = np.load(os.path.join(folder_path, 'Downsampled_Data.npy'))
+
+# Load the pixel indices 
+indices = np.load(os.path.join(folder_path, 'Pixel_Indicies.npy'))
+
+# Set the color scale range
+vmin = -0.05
+vmax = 0.05
+
+# Call the function to create the raster plot
+create_raster_plot(data, vmin, vmax)
+
+# Call the function to create the animation of pixel changes over time
+animation_activity(data, indices, vmin, vmax)

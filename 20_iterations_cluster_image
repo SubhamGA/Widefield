@@ -1,0 +1,80 @@
+import numpy as np
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+import os
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+# Define the main folder path where your data files and subfolders are located
+# main_folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/'
+main_folder_path = '/Users/subham/Python/Downsampled_Data/'
+
+# Function to calculate centroids
+def centroid_calculator(data):
+    # Select a random subset of 1000 time points from the total 22382 time points
+    random_indices = np.random.choice(data.shape[0], 1000, replace=False)
+    subset_data = data[random_indices]
+
+    # Number of clusters
+    n_clusters = 5
+
+    # Perform K-means clustering
+    kmeans_model = KMeans(n_clusters=n_clusters, n_init=10, random_state=1)
+    labels = kmeans_model.fit_predict(subset_data)
+
+    # Get cluster centroids
+    centroids = kmeans_model.cluster_centers_
+
+    return labels, centroids
+
+# Recursively search for data files in the main folder and its subfolders
+for root, dirs, files in os.walk(main_folder_path):
+    for file_name in files:
+        if file_name.endswith('.npy') and 'Downsampled_Data' in file_name:
+            # Load the data from the current file
+            data = np.load(os.path.join(root, file_name))
+
+            # Load the pixel indices
+            indices = np.load(os.path.join(root, 'Pixel_Indicies.npy'))
+
+            # Folder to save the results (create a new folder for each dataset)
+            save_folder_path = os.path.join(root, '20_cluster_patterns/')
+            if not os.path.exists(save_folder_path):
+                os.makedirs(save_folder_path)
+
+            # Iterate 20 times
+            for n in range(20):
+                labels, centroids = centroid_calculator(data)
+
+                # Create a figure with subplots for each cluster
+                fig, axs = plt.subplots(1, 5, figsize=(15, 3))
+
+                # Loop through each centroid and create an image
+                for cluster_id, centroid in enumerate(centroids):
+                    plt.sca(axs[cluster_id])
+
+                    # Create an empty template matrix of size 100x100
+                    template = np.zeros((100, 100))
+
+                    # Update the template matrix using indices
+                    for i, index in enumerate(indices):
+                        row, col = divmod(index - 1, 100)  # Convert 1D index to 2D coordinates
+                        template[row, col] = centroid[i]  # Use centroid values for this cluster
+
+                    # Create a heatmap to visualize the template matrix
+                    plt.imshow(template, cmap='viridis', vmin=-0.05, vmax=0.05)
+                    plt.title(f'Cluster {cluster_id + 1}')
+
+                # Create a canvas to save the entire figure
+                canvas = FigureCanvas(fig)
+
+                # Save centroids as a file
+                np.save(os.path.join(save_folder_path, f'centroids_{n}.npy'), centroids)
+
+                # Save the figure as one large image
+                canvas.print_figure(os.path.join(save_folder_path, f'clusters_combined_{n}.png'))
+
+                # Close the figure to avoid memory leaks
+                plt.close(fig)
+
+            # Display the images side by side
+            plt.tight_layout()

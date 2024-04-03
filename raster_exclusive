@@ -1,0 +1,35 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+
+# Specify the folder path where your data files are located
+folder_path = '/Users/subham/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/'
+# folder_path = 'C:/Users/rick2/Documents/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/'
+
+# Load your data from file in the specified folder
+data = np.load(os.path.join(folder_path, 'Downsampled_Data.npy'))
+
+# Load the pixel indices from Pixel_Indicies.npy in the specified folder
+indices = np.load(os.path.join(folder_path, 'Pixel_Indicies.npy'))
+
+# Set the color scale range
+vmin = -0.05
+vmax = 0.05
+
+# Plot raster of the data with color scale range
+plt.imshow(data, cmap='viridis', origin='lower', aspect='auto', vmin=vmin, vmax=vmax)
+plt.title('Raster Plot of Brain Activity')
+plt.xlabel('Pixel Columns')
+plt.ylabel('Time Rows')
+plt.colorbar()  # Add a colorbar to the plot
+
+# Save folder path - update this to where you want to save the graph
+save_folder_path = '/Users/subham/Python/Downsampled_Data/NRXN78.1A/2020_11_02_Spontaneous/graphs/'
+os.makedirs(save_folder_path, exist_ok=True)  # Create the folder if it does not exist
+
+# Save the plot as an image
+file_name = 'brain_activity_raster_plot.png'
+save_path = os.path.join(save_folder_path, file_name)
+plt.savefig(save_path)
+
+print(f"Graph saved at: {save_path}")
